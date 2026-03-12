@@ -6,7 +6,9 @@
 
 <p align="center">
   <strong>Chaos & adversarial testing framework for Arbitrum rollup stacks.</strong><br/>
-  Same seed = same chaos = reproducible bugs.
+  Same seed = same chaos = reproducible bugs.<br/><br/>
+  <em>r30rg finds rollup consensus bugs before mainnet does.<br/>
+  Deterministic chaos testing for L2 infrastructure.</em>
 </p>
 
 <p align="center">
