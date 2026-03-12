@@ -109,7 +109,7 @@ r30rg run all --category invariant-probe --non-destructive
 
 ## Deterministic Simulation
 
-Inspired by [TigerBeetle's VOPR](https://tigerbeetle.com/blog/2023-07-11-a-friendly-abstraction-over-iouring-and-kqueue/) — deterministic simulation testing that compresses years of operation into minutes.
+Inspired by [TigerBeetle's VOPR](https://tigerbeetle.com/blog/2023-07-06-simulation-testing-for-liveness/) — deterministic simulation testing that compresses years of operation into minutes.
 
 ### Simulated Components
 
