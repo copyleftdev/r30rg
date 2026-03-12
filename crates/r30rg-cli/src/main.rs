@@ -73,6 +73,18 @@ enum Commands {
         /// Docker compose project name.
         #[arg(long, default_value = "nitro-testnode-live")]
         docker_project: String,
+
+        /// L1 Inbox contract address (from rollup deployment.json). Enables L1→L2 deposit testing.
+        #[arg(long)]
+        inbox_addr: Option<String>,
+
+        /// L1 Bridge contract address (from rollup deployment.json). Enables bridge balance checks.
+        #[arg(long)]
+        bridge_addr: Option<String>,
+
+        /// ExpressLaneAuction contract address. Enables timeboost adversarial probing.
+        #[arg(long)]
+        auction_addr: Option<String>,
     },
 
     /// Run deterministic simulation campaign (no live infra needed).
@@ -83,6 +95,17 @@ enum Commands {
 
         /// Ticks per seed.
         #[arg(long, default_value_t = 10_000)]
+        ticks: u64,
+    },
+
+    /// Shrink a failing simulation to the minimal fault set.
+    Shrink {
+        /// The failing seed to shrink.
+        #[arg(long)]
+        seed: u64,
+
+        /// Ticks per run.
+        #[arg(long, default_value_t = 5000)]
         ticks: u64,
     },
 
@@ -136,6 +159,9 @@ async fn main() -> anyhow::Result<()> {
             l2_rpc,
             l3_rpc,
             docker_project,
+            inbox_addr,
+            bridge_addr,
+            auction_addr,
         } => {
             cmd_run(
                 &scenario,
@@ -146,11 +172,15 @@ async fn main() -> anyhow::Result<()> {
                 &l2_rpc,
                 &l3_rpc,
                 &docker_project,
+                inbox_addr.as_deref(),
+                bridge_addr.as_deref(),
+                auction_addr.as_deref(),
                 &output_fmt,
             )
             .await
         }
         Commands::Sim { seeds, ticks } => cmd_sim(seeds, ticks, cli.seed, &output_fmt),
+        Commands::Shrink { seed, ticks } => cmd_shrink(seed, ticks, &output_fmt),
         Commands::Profiles => cmd_profiles(),
         Commands::Ping {
             l1_rpc,
@@ -210,10 +240,16 @@ async fn cmd_run(
     l2_rpc: &str,
     l3_rpc: &str,
     docker_project: &str,
+    inbox_addr: Option<&str>,
+    bridge_addr: Option<&str>,
+    auction_addr: Option<&str>,
     output_fmt: &OutputFormat,
 ) -> anyhow::Result<()> {
     let scenarios = all_scenarios();
-    let config = build_config(l1_rpc, l2_rpc, l3_rpc, docker_project);
+    let mut config = build_config(l1_rpc, l2_rpc, l3_rpc, docker_project);
+    config.inbox_addr = inbox_addr.map(String::from);
+    config.bridge_addr = bridge_addr.map(String::from);
+    config.auction_addr = auction_addr.map(String::from);
 
     let mut to_run: Vec<&dyn r30rg_core::scenario::Scenario> = if scenario_name == "all" {
         scenarios.iter().map(|s| s.as_ref()).collect()
@@ -400,6 +436,97 @@ fn cmd_sim(num_seeds: u64, ticks_per_seed: u64, starting_seed: u64, output_fmt: 
 
     if result.seeds_failed > 0 {
         std::process::exit(1);
+    }
+    Ok(())
+}
+
+fn cmd_shrink(seed: u64, ticks: u64, output_fmt: &OutputFormat) -> anyhow::Result<()> {
+    if matches!(output_fmt, OutputFormat::Text) {
+        println!("  Shrinking seed {} ({} ticks)...\n", seed, ticks);
+    }
+
+    let start = std::time::Instant::now();
+    match simulator::shrink_violation(seed, ticks) {
+        Some(result) => {
+            let elapsed = start.elapsed();
+            match output_fmt {
+                OutputFormat::Json => {
+                    let faults_json: Vec<_> = result.minimal_faults.iter().map(|f| {
+                        let kind = match &f.kind {
+                            simulator::FaultKind::Crash { node_index, role, restart_delay } => {
+                                json!({
+                                    "type": "crash",
+                                    "node_index": node_index,
+                                    "role": role,
+                                    "restart_delay": restart_delay,
+                                })
+                            }
+                            simulator::FaultKind::Partition { node_a, node_b, heal_delay } => {
+                                json!({
+                                    "type": "partition",
+                                    "node_a": node_a,
+                                    "node_b": node_b,
+                                    "heal_delay": heal_delay,
+                                })
+                            }
+                        };
+                        json!({
+                            "index": f.index,
+                            "tick": f.tick,
+                            "kind": kind,
+                        })
+                    }).collect();
+                    println!("{}", serde_json::to_string_pretty(&json!({
+                        "seed": seed,
+                        "original_faults": result.original_faults,
+                        "minimal_faults_count": result.minimal_faults.len(),
+                        "minimal_faults": faults_json,
+                        "violation": {
+                            "tick": result.violation.tick,
+                            "description": result.violation.description,
+                        },
+                        "shrink_steps": result.shrink_steps,
+                        "elapsed_secs": elapsed.as_secs_f64(),
+                    }))?);
+                }
+                OutputFormat::Text => {
+                    println!("  ════════════════════════════════════════════");
+                    println!("  Shrink complete in {:.2}s ({} steps)", elapsed.as_secs_f64(), result.shrink_steps);
+                    println!("  Original faults: {}", result.original_faults);
+                    println!("  Minimal faults:  {}", result.minimal_faults.len());
+                    println!();
+                    println!("  Violation: [tick={}] {}", result.violation.tick, result.violation.description);
+                    println!();
+                    if result.minimal_faults.is_empty() {
+                        println!("  No faults needed — violation is inherent to the model.");
+                    } else {
+                        println!("  Minimal fault sequence:");
+                        for f in &result.minimal_faults {
+                            match &f.kind {
+                                simulator::FaultKind::Crash { node_index, role, restart_delay } => {
+                                    println!("    tick={:>5}  CRASH  node={} ({}) restart_after={}", f.tick, node_index, role, restart_delay);
+                                }
+                                simulator::FaultKind::Partition { node_a, node_b, heal_delay } => {
+                                    println!("    tick={:>5}  PARTITION  nodes=[{},{}] heal_after={}", f.tick, node_a, node_b, heal_delay);
+                                }
+                            }
+                        }
+                    }
+                    println!("  ════════════════════════════════════════════");
+                }
+            }
+        }
+        None => {
+            if matches!(output_fmt, OutputFormat::Text) {
+                println!("  Seed {} does not produce a violation at {} ticks — nothing to shrink.", seed, ticks);
+            } else {
+                println!("{}", serde_json::to_string_pretty(&json!({
+                    "seed": seed,
+                    "ticks": ticks,
+                    "result": "no_violation",
+                }))?);
+            }
+        }
     }
     Ok(())
 }

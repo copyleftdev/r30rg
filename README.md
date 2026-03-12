@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="#live-scenarios"><img src="https://img.shields.io/badge/scenarios-6-blue" alt="Scenarios"/></a>
+  <a href="#live-scenarios"><img src="https://img.shields.io/badge/scenarios-8-blue" alt="Scenarios"/></a>
   <a href="#deterministic-simulation"><img src="https://img.shields.io/badge/sim_invariants-8-green" alt="Invariants"/></a>
   <a href="#cli-reference"><img src="https://img.shields.io/badge/output-text%20%7C%20json-orange" alt="Output"/></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-lightgrey" alt="License"/></a>
@@ -64,6 +64,16 @@ r30rg --seed 42 run sequencer-kill-and-recover
 # Run deterministic simulation (10k seeds x 5k ticks)
 r30rg sim --seeds 10000 --ticks 5000
 
+# Shrink a failing simulation seed to minimal faults
+r30rg shrink --seed 7652 --ticks 5000
+
+# Bridge stress test with deposit (requires deployment addresses)
+r30rg run bridge-deposit-withdraw-stress \
+  --inbox-addr 0x... --bridge-addr 0x...
+
+# Timeboost auction probe
+r30rg run timeboost-auction-probe --auction-addr 0x...
+
 # JSON output (for CI / pipelines)
 r30rg --output json run all --non-destructive
 r30rg --output json sim --seeds 1000 --ticks 5000
@@ -71,7 +81,7 @@ r30rg --output json sim --seeds 1000 --ticks 5000
 
 ## Live Scenarios
 
-Six adversarial scenarios targeting the Arbitrum Nitro testnode stack:
+Eight adversarial scenarios targeting any Arbitrum rollup stack:
 
 | Scenario | Category | Destructive | Layers | What It Tests |
 |----------|----------|:-----------:|:------:|---------------|
@@ -81,6 +91,8 @@ Six adversarial scenarios targeting the Arbitrum Nitro testnode stack:
 | `balance-consistency-probe` | bridge-adversarial | No | L1, L2, L3 | Snapshot balances on all layers, verify cross-layer consistency, probe precompiles |
 | `full-stack-health-probe` | invariant-probe | No | L1, L2, L3 | Block production liveness, gas pricing sanity, precompile accessibility, cross-layer connectivity |
 | `precompile-surface-probe` | invariant-probe | No | L2 | Probe ArbSys, ArbGasInfo, ArbRetryableTx, ArbAggregator precompiles; verify valid responses |
+| `bridge-deposit-withdraw-stress` | bridge-adversarial | No | L1, L2 | L1→L2 deposit via Inbox, L2→L1 withdrawal via ArbSys, bridge balance conservation |
+| `timeboost-auction-probe` | bridge-adversarial | No | L1, L2 | Express lane auction config, monopolization detection, reserve price invariants |
 
 ### Filtering
 
@@ -176,6 +188,7 @@ COMMANDS:
     list       List all available scenarios
     run        Run scenario(s) against the live stack
     sim        Run deterministic simulation campaign
+    shrink     Delta-debug a failing seed to minimal faults
     profiles   Show chaos profiles
     ping       Check connectivity to the live stack
 
@@ -191,10 +204,17 @@ RUN OPTIONS:
     --l2-rpc <URL>       L2 RPC endpoint (default: http://127.0.0.1:8547)
     --l3-rpc <URL>       L3 RPC endpoint (default: http://127.0.0.1:3347)
     --docker-project <N> Docker compose project (default: nitro-testnode-live)
+    --inbox-addr <ADDR>  L1 Inbox contract (from deployment.json). Enables deposit tests.
+    --bridge-addr <ADDR> L1 Bridge contract (from deployment.json). Enables balance checks.
+    --auction-addr <ADDR> ExpressLaneAuction contract. Enables timeboost probing.
 
 SIM OPTIONS:
     --seeds <N>          Number of seeds to run (default: 1000)
     --ticks <N>          Ticks per seed (default: 10000)
+
+SHRINK OPTIONS:
+    --seed <N>           Seed that triggers a violation
+    --ticks <N>          Ticks per run (default: 5000)
 ```
 
 ### JSON Output

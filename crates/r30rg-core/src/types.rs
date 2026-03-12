@@ -37,6 +37,12 @@ pub struct StackConfig {
     pub l3: Option<LayerEndpoint>,
     pub docker_compose_project: String,
     pub docker_compose_dir: String,
+    /// L1 Inbox contract address (from rollup deployment). Required for L1→L2 deposit tests.
+    pub inbox_addr: Option<String>,
+    /// L1 Bridge contract address (from rollup deployment). Used for bridge balance checks.
+    pub bridge_addr: Option<String>,
+    /// ExpressLaneAuction contract address (from timeboost deployment). Used for timeboost probing.
+    pub auction_addr: Option<String>,
 }
 
 impl Default for StackConfig {
@@ -62,6 +68,9 @@ impl Default for StackConfig {
             }),
             docker_compose_project: "nitro-testnode-live".into(),
             docker_compose_dir: String::new(),
+            inbox_addr: None,
+            bridge_addr: None,
+            auction_addr: None,
         }
     }
 }

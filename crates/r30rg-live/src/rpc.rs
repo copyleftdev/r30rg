@@ -88,6 +88,40 @@ impl RpcHarness {
         Ok(result.to_vec())
     }
 
+    /// Send a transaction via eth_sendTransaction (works on dev-mode geth with unlocked accounts).
+    pub async fn send_transaction(
+        &self,
+        layer: Layer,
+        from: Address,
+        to: Address,
+        value: U256,
+        data: Vec<u8>,
+    ) -> anyhow::Result<alloy::primitives::B256> {
+        let conn = self.get_layer(layer)?;
+        let mut tx = alloy::rpc::types::TransactionRequest::default()
+            .from(from)
+            .to(to)
+            .value(value);
+        if !data.is_empty() {
+            tx = tx.input(alloy::rpc::types::TransactionInput::new(Bytes::from(data)));
+        }
+        let pending = conn.provider.send_transaction(tx).await?;
+        let tx_hash = *pending.tx_hash();
+        // Wait for receipt.
+        let receipt = pending.get_receipt().await?;
+        if !receipt.status() {
+            anyhow::bail!("transaction {} reverted", tx_hash);
+        }
+        Ok(tx_hash)
+    }
+
+    /// Get the list of unlocked accounts on a layer (dev-mode geth).
+    pub async fn accounts(&self, layer: Layer) -> anyhow::Result<Vec<Address>> {
+        let conn = self.get_layer(layer)?;
+        let accounts: Vec<Address> = conn.provider.raw_request("eth_accounts".into(), ()).await?;
+        Ok(accounts)
+    }
+
     fn get_layer(&self, layer: Layer) -> anyhow::Result<&LayerConnection> {
         match layer {
             Layer::L1 => Ok(&self.l1),
