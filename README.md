@@ -35,7 +35,7 @@ r30rg/
 │   ├── r30rg-core/       # Types, traits, PRNG (ChaCha20), simulated clock, invariants
 │   ├── r30rg-sim/        # Deterministic simulation engine (TigerBeetle-style)
 │   ├── r30rg-live/       # Live chaos: Docker fault injection (Bollard) + RPC harness (Alloy)
-│   ├── r30rg-scenarios/  # Adversarial scenario library (6 scenarios)
+│   ├── r30rg-scenarios/  # Adversarial scenario library (8 scenarios)
 │   └── r30rg-cli/        # CLI binary (text + JSON output)
 ├── media/                # Assets (hero image)
 ├── Cargo.toml            # Workspace manifest
@@ -109,7 +109,7 @@ r30rg run all --category invariant-probe --non-destructive
 
 ## Deterministic Simulation
 
-Inspired by [TigerBeetle's VOPR](https://tigerbeetle.com/blog/2023-07-11-a-]friendly-abstraction-over-iouring-and-kqueue/) — deterministic simulation testing that compresses years of operation into minutes.
+Inspired by [TigerBeetle's VOPR](https://tigerbeetle.com/blog/2023-07-11-a-friendly-abstraction-over-iouring-and-kqueue/) — deterministic simulation testing that compresses years of operation into minutes.
 
 ### Simulated Components
 
@@ -163,6 +163,26 @@ let mut a = Simulator::new(1337);
 let mut b = Simulator::new(1337);
 assert_eq!(a.run(1000).violations.len(), b.run(1000).violations.len());
 ```
+
+### Simulation Shrinking
+
+When a seed triggers a violation, `r30rg shrink` uses **delta-debugging** to find the minimal set of fault injections that still reproduce it:
+
+```bash
+$ r30rg shrink --seed 7652 --ticks 5000
+
+  Shrinking seed 7652 (5000 ticks)...
+
+  Shrink complete in 0.03s (7 steps)
+  Original faults: 7
+  Minimal faults:  0
+
+  Violation: [tick=501] Validator has never posted an assertion
+
+  No faults needed — violation is inherent to the model.
+```
+
+This tells you whether a violation is caused by fault injection or is inherent to the model's PRNG rolls. Supports `--output json` for CI.
 
 ## Chaos Profiles
 
@@ -237,6 +257,42 @@ r30rg --output json list
 - **Rust** 1.80+
 - **Docker** (for live chaos mode only)
 - **Arbitrum nitro-testnode** (for live chaos mode only) — [setup guide](https://docs.arbitrum.io/run-arbitrum-node/nitro/build-nitro-locally)
+
+### Finding Your Contract Addresses
+
+The bridge and timeboost scenarios require contract addresses from your rollup deployment. These are **not hardcoded** — every deployment generates unique addresses.
+
+**From nitro-testnode** (Docker volume):
+
+```bash
+# Read deployment.json from the config volume
+docker run --rm -v <project>_config:/config alpine \
+  cat /config/deployment.json
+```
+
+This returns:
+
+```json
+{
+  "bridge": "0x...",
+  "inbox": "0x...",
+  "sequencer-inbox": "0x...",
+  "rollup": "0x..."
+}
+```
+
+Pass the values via CLI flags:
+
+```bash
+r30rg run bridge-deposit-withdraw-stress \
+  --inbox-addr 0x... \
+  --bridge-addr 0x...
+
+r30rg run timeboost-auction-probe \
+  --auction-addr 0x...
+```
+
+If you omit these flags, the scenarios **gracefully skip** the contract-dependent checks and run only the universal probes (ArbSys, precompiles, etc.).
 
 ### Target Stack
 
