@@ -1,0 +1,21 @@
+[package]
+name = "r30rg-scenarios"
+description = "Adversarial scenario library for Arbitrum rollup stack"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+r30rg-core = { workspace = true }
+r30rg-live = { workspace = true }
+alloy = { workspace = true }
+alloy-primitives = { workspace = true }
+alloy-provider = { workspace = true }
+alloy-rpc-types = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+uuid = { workspace = true }

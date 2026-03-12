@@ -1,0 +1,72 @@
+[workspace]
+members = [
+    "crates/r30rg-core",
+    "crates/r30rg-sim",
+    "crates/r30rg-live",
+    "crates/r30rg-scenarios",
+    "crates/r30rg-cli",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+rust-version = "1.80"
+authors = ["copyleftdev"]
+description = "Chaos & adversarial testing framework for Arbitrum rollup stacks — deterministic simulation + live Docker fault injection"
+repository = "https://github.com/copyleftdev/r30rg"
+homepage = "https://github.com/copyleftdev/r30rg"
+documentation = "https://github.com/copyleftdev/r30rg#readme"
+keywords = ["arbitrum", "chaos-engineering", "rollup", "ethereum", "testing"]
+categories = ["development-tools::testing", "command-line-utilities"]
+readme = "README.md"
+
+[workspace.dependencies]
+# Internal crates
+r30rg-core = { path = "crates/r30rg-core" }
+r30rg-sim = { path = "crates/r30rg-sim" }
+r30rg-live = { path = "crates/r30rg-live" }
+r30rg-scenarios = { path = "crates/r30rg-scenarios" }
+
+# Ethereum / RPC
+alloy = { version = "1", features = ["full", "node-bindings"] }
+alloy-primitives = "1"
+alloy-provider = "1"
+alloy-rpc-types = "1"
+alloy-signer-local = "1"
+alloy-network = "1"
+
+# Docker control
+bollard = "0.18"
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+futures = "0.3"
+
+# Deterministic RNG
+rand = "0.8"
+rand_chacha = "0.3"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# CLI
+clap = { version = "4", features = ["derive"] }
+
+# Observability
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# Error handling
+thiserror = "2"
+anyhow = "1"
+
+# Time
+chrono = "0.4"
+
+# Misc
+uuid = { version = "1", features = ["v4"] }
+async-trait = "0.1"
+url = "2"

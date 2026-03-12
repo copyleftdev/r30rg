@@ -1,0 +1,23 @@
+[package]
+name = "r30rg"
+description = "r30rg — chaos & adversarial testing framework for Arbitrum rollup stacks"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "r30rg"
+path = "src/main.rs"
+
+[dependencies]
+r30rg-core = { workspace = true }
+r30rg-sim = { workspace = true }
+r30rg-live = { workspace = true }
+r30rg-scenarios = { workspace = true }
+clap = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
